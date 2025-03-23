@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QFileDialog, QWidg
 from PyQt6.QtGui import QAction, QPixmap
 from PyQt6.QtCore import Qt
 from PIL import Image, ImageQt
+from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -139,9 +140,28 @@ class MainWindow(QMainWindow):
         self.lut_sliders_layout.addWidget(self.gamma_slider['label'])
         self.lut_sliders_layout.addWidget(self.gamma_slider['slider'])
 
+        #RESETUJ START
+        # Spacer wypychający zawartość w górę
+        spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.side_panel_layout.addItem(spacer)
+
+        # Przycisk Resetuj obraz
         reset_button = QPushButton("Resetuj obraz")
         reset_button.clicked.connect(self.reset_image)
+        reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #37a7ec;
+                color: white;
+                font-weight: bold;
+                border-radius: 8px;
+                padding: 6px;
+            }
+            QPushButton:hover {
+                background-color: #7a9cb0;
+            }
+        """)
         self.side_panel_layout.addWidget(reset_button)
+        #RESETUJ END
 
         self.lut_sliders_widget.setVisible(False)
 
@@ -165,7 +185,7 @@ class MainWindow(QMainWindow):
         if file_name:
             try:
                 self.image = Image.open(file_name).convert("RGB")
-                self.original_image = self.image.copy()  # ← zapisz oryginał
+                self.original_image = self.image.copy()
                 self.display_image()
             except Exception as e:
                 print(f"Failed to open image: {e}")
@@ -201,14 +221,12 @@ class MainWindow(QMainWindow):
         self.image_label.setPixmap(scaled_pixmap)
 
     def odcienie_szarosci_triggered(self):
-        print("Odcienie szarości")
         if hasattr(self, 'image'):
             converter = ConversionGrayscale(self.image)
             self.image = converter.transform()
             self.display_image()
 
     def lut_triggered(self):
-        print("LUT")
         self.lut_sliders_widget.setVisible(not self.lut_sliders_widget.isVisible())
         # Podpinamy update dla suwaków
         for slider_info in [self.brightness_slider, self.contrast_slider, self.gamma_slider]:
