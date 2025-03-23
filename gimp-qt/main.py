@@ -11,17 +11,18 @@ class Correction:
         self.shift = shift
         self.factor = factor
         self.gamma = gamma
-        self.LUT = [i for i in range(256)]
+        self.LUT = list(range(256))  # startowa LUT
 
     def transform(self):
         # Tworzenie LUT
+        new_LUT = []
         for i in range(256):
-            val = self.LUT[i]
-            val = val + self.shift                # jasność
-            val = val * self.factor               # kontrast
-            val = pow(val / 255.0, self.gamma) * 255  # gamma (skalujemy przed i po)
-            val = max(0, min(255, int(val)))      # clamp
-            self.LUT[i] = val
+            val = i
+            val = val + self.shift
+            val = val * self.factor
+            val = pow(val / 255.0, self.gamma) * 255
+            val = max(0, min(255, int(val)))
+            new_LUT.append(val)
 
         # Zastosowanie LUT
         pixels = self.image.load()
@@ -30,9 +31,9 @@ class Correction:
             for y in range(height):
                 r, g, b = pixels[x, y]
                 pixels[x, y] = (
-                    self.LUT[r],
-                    self.LUT[g],
-                    self.LUT[b]
+                    new_LUT[r],
+                    new_LUT[g],
+                    new_LUT[b]
                 )
 
         return self.image
@@ -96,7 +97,7 @@ class MainWindow(QMainWindow):
         cwiczenia1_menu = QMenu("Ćwiczenia 1", self)
         odcienie_szarosci = QAction("Odcienie szarości", self)
         cwiczenia1_menu.addAction(odcienie_szarosci)
-        lut = QAction("LUT", self)
+        lut = QAction("Jasność + kontrast + gamma", self)
         cwiczenia1_menu.addAction(lut)
         odcienie_szarosci.triggered.connect(self.odcienie_szarosci_triggered)
         lut.triggered.connect(self.lut_triggered)
@@ -169,7 +170,18 @@ class MainWindow(QMainWindow):
         index = self.side_panel_layout.indexOf(self.action2_button)
         self.side_panel_layout.insertWidget(index, self.lut_sliders_widget)
         
+    def apply_lut_correction(self):
+        if hasattr(self, 'current_image'):
+            shift = self.brightness_slider["slider"].value()
+            contrast_val = self.contrast_slider["slider"].value()
+            gamma_val = self.gamma_slider["slider"].value()
 
+            factor = 1.0 + (contrast_val / 100.0)
+            gamma = 1.0 + (gamma_val / 100.0)
+
+            corrected = Correction(self.current_image.copy(), shift, factor, gamma)
+            self.image = corrected.transform()
+            self.display_image()
 
     def create_slider(self, name):
         label = QLabel(f"{name}: 0")
@@ -186,6 +198,7 @@ class MainWindow(QMainWindow):
             try:
                 self.image = Image.open(file_name).convert("RGB")
                 self.original_image = self.image.copy()
+                self.current_image = self.image.copy()
                 self.display_image()
             except Exception as e:
                 print(f"Failed to open image: {e}")
@@ -224,6 +237,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'image'):
             converter = ConversionGrayscale(self.image)
             self.image = converter.transform()
+            self.current_image = self.image.copy()  # ← zapisz nowy stan
             self.display_image()
 
     def lut_triggered(self):
@@ -242,15 +256,15 @@ class MainWindow(QMainWindow):
             gamma = 1.0 + (gamma_val / 100.0)
 
             # użyj oryginału!
-            corrected = Correction(self.original_image.copy(), shift, factor, gamma)
+            corrected = Correction(self.current_image.copy(), shift, factor, gamma)
             self.image = corrected.transform()
             self.display_image()
 
     def reset_image(self):
         if hasattr(self, 'original_image'):
             self.image = self.original_image.copy()
+            self.current_image = self.original_image.copy()
             self.display_image()
-            # Resetuj suwaki:
             self.brightness_slider["slider"].setValue(0)
             self.contrast_slider["slider"].setValue(0)
             self.gamma_slider["slider"].setValue(0)
