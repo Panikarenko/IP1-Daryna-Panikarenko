@@ -58,7 +58,7 @@ class ConversionGrayscale:
                     gray = self.PIXEL_VAL_MAX if r == self.PIXEL_VAL_MAX else self.PIXEL_VAL_MIN
                 else:
                     # Konwersja do szarości z wagami (bardziej realistyczna percepcja)
-                    gray = int(0.299 * r + 0.587 * g + 0.114 * b)
+                    gray = int(0.3 * r + 0.6 * g + 0.1 * b)
                     gray = max(self.PIXEL_VAL_MIN, min(self.PIXEL_VAL_MAX, gray))  # zabezpieczenie
 
                 pixels[x, y] = (gray, gray, gray)
