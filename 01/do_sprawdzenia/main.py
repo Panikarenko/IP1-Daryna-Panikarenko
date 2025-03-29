@@ -20,7 +20,8 @@ class Correction:
             val = i
             val = val + self.shift
             val = val * self.factor
-            val = pow(val / 255.0, self.gamma) * 255
+            val = max(0.0, val / 255.0)
+            val = pow(val, self.gamma) * 255
             val = max(0, min(255, int(val)))
             new_LUT.append(val)
 
