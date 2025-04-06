@@ -4,6 +4,8 @@ from PyQt6.QtGui import QAction, QPixmap
 from PyQt6.QtCore import Qt
 from PIL import Image, ImageQt
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
+from scipy.interpolate import CubicSpline
+import numpy as np
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -14,16 +16,35 @@ class Correction:
         self.LUT = list(range(256))  # startowa LUT
 
     def transform(self):
-        # Tworzenie LUT
-        new_LUT = []
-        for i in range(256):
-            val = i
-            val = val + self.shift
+        # LUT base points: from 0 to 255
+        x = np.arange(256)
+
+        # Start with identity LUT
+        y = np.array(x, dtype=np.float32)
+
+        # Krzywimy LUT w centralnym zakresie (np. 5 punktów wokół 128)
+        control_x = [0, 64, 128, 192, 255]
+        control_y = [0, 
+             64 + self.shift * 0.4, 
+             128 + self.shift * 0.8, 
+             192 + self.shift * 0.4, 
+             255]
+
+        # Make sure values are clamped in [0, 255]
+        control_y = np.clip(control_y, 0, 255)
+
+        # Interpolacja spline
+        cs = CubicSpline(control_x, control_y)
+        lut = np.clip(cs(x), 0, 255).astype(np.uint8)
+
+        # Gamma i kontrast
+        adjusted_lut = []
+        for val in lut:
             val = val * self.factor
             val = max(0.0, val / 255.0)
             val = pow(val, self.gamma) * 255
             val = max(0, min(255, int(val)))
-            new_LUT.append(val)
+            adjusted_lut.append(val)
 
         # Zastosowanie LUT
         pixels = self.image.load()
@@ -32,9 +53,9 @@ class Correction:
             for y in range(height):
                 r, g, b = pixels[x, y]
                 pixels[x, y] = (
-                    new_LUT[r],
-                    new_LUT[g],
-                    new_LUT[b]
+                    adjusted_lut[r],
+                    adjusted_lut[g],
+                    adjusted_lut[b]
                 )
 
         return self.image
