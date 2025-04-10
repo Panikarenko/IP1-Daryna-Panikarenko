@@ -40,7 +40,24 @@ class Correction:
         # Gamma i kontrast
         adjusted_lut = []
         for val in lut:
-            val = val * self.factor
+            normalized_value = self.factor - 1.0
+            movable_values_ids = [1, 2, 4, 5]
+            xp = [0, 50, 100, 128, 155, 205, 255]
+            fp = [0, 50, 100, 128, 155, 205, 255]
+            for val_id in movable_values_ids:
+                change = min(fp[val_id], 255-fp[val_id]) * normalized_value
+                if val_id == 1 or val_id == 5:
+                    change *= 2
+                new_val = fp[val_id] - change if xp[val_id] < 128 else fp[val_id] + change
+                new_val = min(128, new_val) if xp[val_id] < 128 else max(128, new_val)
+                if new_val < 0:
+                    new_val = 0
+                elif new_val > 255:
+                    new_val = 255
+                fp[val_id] = new_val
+
+            val = np.interp(val, xp, fp)
+
             val = max(0.0, val / 255.0)
             val = pow(val, self.gamma) * 255
             val = max(0, min(255, int(val)))
