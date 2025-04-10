@@ -37,9 +37,9 @@ class Correction:
         cs = CubicSpline(control_x, control_y)
         lut = np.clip(cs(x), 0, 255).astype(np.uint8)
 
-        # Gamma i kontrast
         adjusted_lut = []
         for val in lut:
+            # KONSTRAST
             normalized_value = self.factor - 1.0
             movable_values_ids = [1, 2, 4, 5]
             xp = [0, 50, 100, 128, 155, 205, 255]
@@ -58,8 +58,13 @@ class Correction:
 
             val = np.interp(val, xp, fp)
 
-            val = max(0.0, val / 255.0)
-            val = pow(val, self.gamma) * 255
+            # GAMMA
+            nx = 255-(self.gamma * 127.0) # self.gamma od 0.0 do 2.0
+            ny = 255-nx
+            xp = [0, nx, 255]
+            fp = [0, ny, 255]
+            val = np.interp(val, xp, fp)
+
             val = max(0, min(255, int(val)))
             adjusted_lut.append(val)
 
