@@ -220,6 +220,39 @@ class MainWindow(QMainWindow):
         self.lut_sliders_layout.addWidget(self.gamma_slider['label'])
         self.lut_sliders_layout.addWidget(self.gamma_slider['slider'])
 
+        # Widget z suwakami do rozmywania
+        self.blur_sliders_widget = QWidget()
+        self.blur_sliders_layout = QVBoxLayout()
+        self.blur_sliders_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.blur_sliders_widget.setLayout(self.blur_sliders_layout)
+        self.blur_sliders_widget.setVisible(False)  # Początkowo niewidoczny
+
+        self.blur_sliders = {}
+        blur_names = [
+            "splot",
+            "równ. rozmywanie",
+            "gauss. rozmywanie",
+            "splot z maską"
+        ]
+
+        for name in blur_names:
+            label = QLabel(f"{name}: 0")
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setMinimum(0)
+            slider.setMaximum(100)
+            slider.setValue(0)
+            slider.valueChanged.connect(lambda value, l=label, n=name: l.setText(f"{n}: {value}"))
+            self.blur_sliders_layout.addWidget(label)
+            self.blur_sliders_layout.addWidget(slider)
+            self.blur_sliders[name] = slider
+
+        # Dodajemy widget po Histogram (czyli po checkboxach i przycisku Histogram)
+        index_hist = self.side_panel_layout.indexOf(self.histogram_controls_widget)
+        self.side_panel_layout.insertWidget(index_hist + 1, self.blur_sliders_widget)
+
+        spl_roz.triggered.connect(self.blur_menu_triggered)
+
+
         #RESETUJ START
         # Spacer wypychający zawartość w górę
         spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
@@ -248,6 +281,9 @@ class MainWindow(QMainWindow):
         # Dodajemy suwaki przed "Action 2"
         index = self.side_panel_layout.indexOf(self.button2)
         self.side_panel_layout.insertWidget(index, self.lut_sliders_widget)
+
+    def blur_menu_triggered(self):
+        self.blur_sliders_widget.setVisible(not self.blur_sliders_widget.isVisible())
 
     def validate_histogram_checkboxes(self, changed_channel, checked):
         if not checked:
