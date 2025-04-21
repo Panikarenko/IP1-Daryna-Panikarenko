@@ -6,6 +6,7 @@ from PIL import Image, ImageQt
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 from scipy.interpolate import CubicSpline
 import numpy as np
+from PyQt6.QtWidgets import QCheckBox
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -150,8 +151,42 @@ class MainWindow(QMainWindow):
         button1 = QPushButton("Ćwiczenie 1")
         button1.setMenu(cwiczenia1_menu)
         self.side_panel_layout.addWidget(button1)
-        self.action2_button = QPushButton("Action 2")
-        self.side_panel_layout.addWidget(self.action2_button)
+        
+        
+        cwiczenia2_menu = QMenu("Ćwiczenia 2", self)
+        # Dodaj przykładowe akcje dla ćwiczenia 2
+        histogram = QAction("Histogram", self)
+        spl_roz = QAction("Splot, rozmywanie", self)
+        cwiczenia2_menu.addAction(histogram)
+        cwiczenia2_menu.addAction(spl_roz)
+
+        self.button2 = QPushButton("Ćwiczenie 2")
+        self.button2.setMenu(cwiczenia2_menu)
+        self.side_panel_layout.addWidget(self.button2)
+
+
+        # Checkboxy i przycisk do histogramu
+        self.histogram_controls_widget = QWidget()
+        self.histogram_controls_layout = QVBoxLayout()
+        self.histogram_controls_widget.setLayout(self.histogram_controls_layout)
+        self.histogram_controls_widget.setVisible(False)
+
+        # Checkboxy R, G, B, L
+        self.hist_checkboxes = {}
+        for channel in ['R', 'G', 'B', 'L']:
+            checkbox = QCheckBox(channel)
+            checkbox.setChecked(True)
+            checkbox.toggled.connect(lambda checked, ch=channel: self.validate_histogram_checkboxes(ch, checked))
+            self.hist_checkboxes[channel] = checkbox
+            self.histogram_controls_layout.addWidget(checkbox)
+
+        # Przycisk Histogram
+        self.hist_button = QPushButton("Histogram")
+        self.histogram_controls_layout.addWidget(self.hist_button)
+
+        self.side_panel_layout.addWidget(self.histogram_controls_widget)
+
+        histogram.triggered.connect(self.histogram_menu_triggered)
 
         # Create a QLabel to display the image
         self.image_label = QLabel(self)
@@ -211,8 +246,21 @@ class MainWindow(QMainWindow):
         self.lut_sliders_widget.setVisible(False)
 
         # Dodajemy suwaki przed "Action 2"
-        index = self.side_panel_layout.indexOf(self.action2_button)
+        index = self.side_panel_layout.indexOf(self.button2)
         self.side_panel_layout.insertWidget(index, self.lut_sliders_widget)
+
+    def validate_histogram_checkboxes(self, changed_channel, checked):
+        if not checked:
+            # Liczymy ile jest innych zaznaczonych checkboxów
+            remaining_checked = sum(
+                cb.isChecked() for name, cb in self.hist_checkboxes.items() if name != changed_channel
+            )
+            if remaining_checked == 0:
+                # Jeśli to ostatni, cofamy zmianę
+                self.hist_checkboxes[changed_channel].setChecked(True)
+
+    def histogram_menu_triggered(self):
+        self.histogram_controls_widget.setVisible(not self.histogram_controls_widget.isVisible())
         
     def apply_lut_correction(self):
         if hasattr(self, 'current_image'):
