@@ -184,6 +184,16 @@ class MainWindow(QMainWindow):
         self.hist_button = QPushButton("Histogram")
         self.histogram_controls_layout.addWidget(self.hist_button)
 
+        # NOWE PRZYCISKI – dodane pod Histogram
+        self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
+        self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
+
+        self.histogram_controls_layout.addWidget(self.hist_stretch_button)
+        self.histogram_controls_layout.addWidget(self.hist_equalize_button)
+
+        #self.hist_stretch_button.clicked.connect(self.stretch_histogram)
+        #self.hist_equalize_button.clicked.connect(self.equalize_histogram)
+
         self.side_panel_layout.addWidget(self.histogram_controls_widget)
 
         histogram.triggered.connect(self.histogram_menu_triggered)
