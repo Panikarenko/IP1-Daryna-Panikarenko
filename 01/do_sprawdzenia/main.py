@@ -119,6 +119,20 @@ class HistogramDialog(QDialog):
         self.setMinimumSize(500, 400)
         layout = QVBoxLayout(self)
 
+        # Histogram controls
+        self.hist_checkboxes = {}
+        for channel in ['R', 'G', 'B', 'L']:
+            checkbox = QCheckBox(channel)
+            checkbox.setChecked(True)
+            # Optionally: connect to a method to update the plot
+            # checkbox.toggled.connect(lambda checked, ch=channel: self.update_histogram())
+            self.hist_checkboxes[channel] = checkbox
+            layout.addWidget(checkbox)
+
+        self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
+        self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
+        layout.addWidget(self.hist_stretch_button)
+        layout.addWidget(self.hist_equalize_button)
         # Extract pixel data
         width = qimage.width()
         height = qimage.height()
@@ -205,36 +219,36 @@ class MainWindow(QMainWindow):
         self.side_panel_layout.addWidget(self.button2)
 
 
-        # Checkboxy i przycisk do histogramu
-        self.histogram_controls_widget = QWidget()
-        self.histogram_controls_layout = QVBoxLayout()
-        self.histogram_controls_widget.setLayout(self.histogram_controls_layout)
-        self.histogram_controls_widget.setVisible(False)
+        # # Checkboxy i przycisk do histogramu
+        # self.histogram_controls_widget = QWidget()
+        # self.histogram_controls_layout = QVBoxLayout()
+        # self.histogram_controls_widget.setLayout(self.histogram_controls_layout)
+        # self.histogram_controls_widget.setVisible(False)
 
-        # Checkboxy R, G, B, L
-        self.hist_checkboxes = {}
-        for channel in ['R', 'G', 'B', 'L']:
-            checkbox = QCheckBox(channel)
-            checkbox.setChecked(True)
-            checkbox.toggled.connect(lambda checked, ch=channel: self.validate_histogram_checkboxes(ch, checked))
-            self.hist_checkboxes[channel] = checkbox
-            self.histogram_controls_layout.addWidget(checkbox)
+        # # Checkboxy R, G, B, L
+        # self.hist_checkboxes = {}
+        # for channel in ['R', 'G', 'B', 'L']:
+        #     checkbox = QCheckBox(channel)
+        #     checkbox.setChecked(True)
+        #     checkbox.toggled.connect(lambda checked, ch=channel: self.validate_histogram_checkboxes(ch, checked))
+        #     self.hist_checkboxes[channel] = checkbox
+        #     self.histogram_controls_layout.addWidget(checkbox)
 
-        # Przycisk Histogram
-        self.hist_button = QPushButton("Histogram")
-        self.histogram_controls_layout.addWidget(self.hist_button)
+        # # Przycisk Histogram
+        # self.hist_button = QPushButton("Histogram")
+        # self.histogram_controls_layout.addWidget(self.hist_button)
 
-        # NOWE PRZYCISKI – dodane pod Histogram
-        self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
-        self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
+        # # NOWE PRZYCISKI – dodane pod Histogram
+        # self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
+        # self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
 
-        self.histogram_controls_layout.addWidget(self.hist_stretch_button)
-        self.histogram_controls_layout.addWidget(self.hist_equalize_button)
+        # self.histogram_controls_layout.addWidget(self.hist_stretch_button)
+        # self.histogram_controls_layout.addWidget(self.hist_equalize_button)
 
-        #self.hist_stretch_button.clicked.connect(self.stretch_histogram)
-        #self.hist_equalize_button.clicked.connect(self.equalize_histogram)
+        # #self.hist_stretch_button.clicked.connect(self.stretch_histogram)
+        # #self.hist_equalize_button.clicked.connect(self.equalize_histogram)
 
-        self.side_panel_layout.addWidget(self.histogram_controls_widget)
+        # self.side_panel_layout.addWidget(self.histogram_controls_widget)
 
         histogram.triggered.connect(self.histogram_menu_triggered)
 
@@ -297,8 +311,9 @@ class MainWindow(QMainWindow):
             self.blur_sliders[name] = slider
 
         # Dodajemy widget po Histogram (czyli po checkboxach i przycisku Histogram)
-        index_hist = self.side_panel_layout.indexOf(self.histogram_controls_widget)
-        self.side_panel_layout.insertWidget(index_hist + 1, self.blur_sliders_widget)
+        # index_hist = self.side_panel_layout.indexOf(self.histogram_controls_widget)
+        # self.side_panel_layout.insertWidget(index_hist + 1, self.blur_sliders_widget)
+        self.side_panel_layout.addWidget(self.blur_sliders_widget)
 
         spl_roz.triggered.connect(self.blur_menu_triggered)
 
@@ -346,7 +361,7 @@ class MainWindow(QMainWindow):
                 self.hist_checkboxes[changed_channel].setChecked(True)
 
     def histogram_menu_triggered(self):
-        self.histogram_controls_widget.setVisible(not self.histogram_controls_widget.isVisible())
+        # self.histogram_controls_widget.setVisible(not self.histogram_controls_widget.isVisible())
         # Show histogram dialog
         if hasattr(self, 'image'):
             # Convert PIL image to QImage
