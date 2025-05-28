@@ -6,7 +6,9 @@ from PIL import Image, ImageQt
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 from scipy.interpolate import CubicSpline
 import numpy as np
-from PyQt6.QtWidgets import QCheckBox
+from PyQt6.QtWidgets import QCheckBox, QDialog, QVBoxLayout, QPushButton
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -109,6 +111,44 @@ class ConversionGrayscale:
                 pixels[x, y] = (gray, gray, gray)
 
         return self.image
+
+class HistogramDialog(QDialog):
+    def __init__(self, qimage, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Histogram")
+        self.setMinimumSize(500, 400)
+        layout = QVBoxLayout(self)
+
+        # Extract pixel data
+        width = qimage.width()
+        height = qimage.height()
+        # Ensure QImage is in RGB888 format
+        if qimage.format() != qimage.Format.Format_RGB888:
+            qimage = qimage.convertToFormat(qimage.Format.Format_RGB888)
+        ptr = qimage.bits()
+        ptr.setsize(qimage.sizeInBytes())
+        arr = np.frombuffer(ptr, np.uint8).reshape((height, width, 3))
+
+        # Compute histograms
+        r = arr[:, :, 0].flatten()
+        g = arr[:, :, 1].flatten()
+        b = arr[:, :, 2].flatten()
+
+        fig, ax = plt.subplots()
+        ax.hist(r, bins=256, color='red', alpha=0.5, label='R')
+        ax.hist(g, bins=256, color='green', alpha=0.5, label='G')
+        ax.hist(b, bins=256, color='blue', alpha=0.5, label='B')
+        ax.set_xlim([0, 255])
+        ax.set_title("Histogram RGB")
+        ax.legend()
+
+        canvas = FigureCanvas(fig)
+        layout.addWidget(canvas)
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -307,6 +347,12 @@ class MainWindow(QMainWindow):
 
     def histogram_menu_triggered(self):
         self.histogram_controls_widget.setVisible(not self.histogram_controls_widget.isVisible())
+        # Show histogram dialog
+        if hasattr(self, 'image'):
+            # Convert PIL image to QImage
+            qt_image = ImageQt.ImageQt(self.image)
+            dialog = HistogramDialog(qt_image, self)
+            dialog.exec()
         
     def apply_lut_correction(self):
         if hasattr(self, 'current_image'):
