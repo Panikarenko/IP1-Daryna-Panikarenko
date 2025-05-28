@@ -278,9 +278,7 @@ class MainWindow(QMainWindow):
             self.blur_sliders_layout.addWidget(slider)
             self.blur_sliders[name] = slider
 
-        # Dodajemy widget po Histogram (czyli po checkboxach i przycisku Histogram)
-        # index_hist = self.side_panel_layout.indexOf(self.histogram_controls_widget)
-        # self.side_panel_layout.insertWidget(index_hist + 1, self.blur_sliders_widget)
+        # Dodajemy widgety z suwakami do panelu bocznego
         self.side_panel_layout.addWidget(self.blur_sliders_widget)
 
         spl_roz.triggered.connect(self.blur_menu_triggered)
