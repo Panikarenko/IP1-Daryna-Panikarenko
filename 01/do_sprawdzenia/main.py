@@ -218,38 +218,6 @@ class MainWindow(QMainWindow):
         self.button2.setMenu(cwiczenia2_menu)
         self.side_panel_layout.addWidget(self.button2)
 
-
-        # # Checkboxy i przycisk do histogramu
-        # self.histogram_controls_widget = QWidget()
-        # self.histogram_controls_layout = QVBoxLayout()
-        # self.histogram_controls_widget.setLayout(self.histogram_controls_layout)
-        # self.histogram_controls_widget.setVisible(False)
-
-        # # Checkboxy R, G, B, L
-        # self.hist_checkboxes = {}
-        # for channel in ['R', 'G', 'B', 'L']:
-        #     checkbox = QCheckBox(channel)
-        #     checkbox.setChecked(True)
-        #     checkbox.toggled.connect(lambda checked, ch=channel: self.validate_histogram_checkboxes(ch, checked))
-        #     self.hist_checkboxes[channel] = checkbox
-        #     self.histogram_controls_layout.addWidget(checkbox)
-
-        # # Przycisk Histogram
-        # self.hist_button = QPushButton("Histogram")
-        # self.histogram_controls_layout.addWidget(self.hist_button)
-
-        # # NOWE PRZYCISKI – dodane pod Histogram
-        # self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
-        # self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
-
-        # self.histogram_controls_layout.addWidget(self.hist_stretch_button)
-        # self.histogram_controls_layout.addWidget(self.hist_equalize_button)
-
-        # #self.hist_stretch_button.clicked.connect(self.stretch_histogram)
-        # #self.hist_equalize_button.clicked.connect(self.equalize_histogram)
-
-        # self.side_panel_layout.addWidget(self.histogram_controls_widget)
-
         histogram.triggered.connect(self.histogram_menu_triggered)
 
         # Create a QLabel to display the image
