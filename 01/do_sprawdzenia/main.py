@@ -124,8 +124,6 @@ class HistogramDialog(QDialog):
         for channel in ['R', 'G', 'B', 'L']:
             checkbox = QCheckBox(channel)
             checkbox.setChecked(True)
-            # Optionally: connect to a method to update the plot
-            # checkbox.toggled.connect(lambda checked, ch=channel: self.update_histogram())
             self.hist_checkboxes[channel] = checkbox
             layout.addWidget(checkbox)
 
@@ -133,35 +131,82 @@ class HistogramDialog(QDialog):
         self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
         layout.addWidget(self.hist_stretch_button)
         layout.addWidget(self.hist_equalize_button)
+
+        # Connect buttons to functions
+        self.hist_stretch_button.clicked.connect(self.stretch_histogram)
+        self.hist_equalize_button.clicked.connect(self.equalize_histogram)
+
         # Extract pixel data
         width = qimage.width()
         height = qimage.height()
-        # Ensure QImage is in RGB888 format
         if qimage.format() != qimage.Format.Format_RGB888:
             qimage = qimage.convertToFormat(qimage.Format.Format_RGB888)
         ptr = qimage.bits()
         ptr.setsize(qimage.sizeInBytes())
         arr = np.frombuffer(ptr, np.uint8).reshape((height, width, 3))
+        self.arr = arr  # Save for later use
+        self.qimage = qimage
 
         # Compute histograms
-        r = arr[:, :, 0].flatten()
-        g = arr[:, :, 1].flatten()
-        b = arr[:, :, 2].flatten()
-
-        fig, ax = plt.subplots()
-        ax.hist(r, bins=256, color='red', alpha=0.5, label='R')
-        ax.hist(g, bins=256, color='green', alpha=0.5, label='G')
-        ax.hist(b, bins=256, color='blue', alpha=0.5, label='B')
-        ax.set_xlim([0, 255])
-        ax.set_title("Histogram RGB")
-        ax.legend()
-
-        canvas = FigureCanvas(fig)
-        layout.addWidget(canvas)
+        self.plot_histogram(layout)
 
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
+
+    def plot_histogram(self, layout):
+        # Remove old canvas if exists
+        if hasattr(self, 'canvas'):
+            layout.removeWidget(self.canvas)
+            self.canvas.setParent(None)
+            del self.canvas
+
+        r = self.arr[:, :, 0].flatten()
+        g = self.arr[:, :, 1].flatten()
+        b = self.arr[:, :, 2].flatten()
+        l = (0.3 * r + 0.6 * g + 0.1 * b).astype(np.uint8)
+
+        fig, ax = plt.subplots()
+        if self.hist_checkboxes['R'].isChecked():
+            ax.hist(r, bins=256, color='red', alpha=0.5, label='R')
+        if self.hist_checkboxes['G'].isChecked():
+            ax.hist(g, bins=256, color='green', alpha=0.5, label='G')
+        if self.hist_checkboxes['B'].isChecked():
+            ax.hist(b, bins=256, color='blue', alpha=0.5, label='B')
+        if self.hist_checkboxes['L'].isChecked():
+            ax.hist(l, bins=256, color='gray', alpha=0.5, label='L')
+        ax.set_xlim([0, 255])
+        ax.set_title("Histogram RGB/L")
+        ax.legend()
+
+        self.canvas = FigureCanvas(fig)
+        layout.insertWidget(layout.count() - 1, self.canvas)  # Add before close button
+
+    def stretch_histogram(self):
+        # Histogram stretching (contrast stretching)
+        arr = self.arr
+        arr_stretched = arr.copy()
+        for c in range(3):
+            channel = arr[:, :, c]
+            min_val = channel.min()
+            max_val = channel.max()
+            if max_val > min_val:
+                arr_stretched[:, :, c] = ((channel - min_val) * 255 / (max_val - min_val)).astype(np.uint8)
+        self.arr = arr_stretched
+        self.plot_histogram(self.layout())
+
+    def equalize_histogram(self):
+        # Histogram equalization
+        arr = self.arr
+        arr_eq = arr.copy()
+        for c in range(3):
+            channel = arr[:, :, c]
+            hist, bins = np.histogram(channel.flatten(), 256, [0,256])
+            cdf = hist.cumsum()
+            cdf_normalized = cdf * 255 / cdf[-1]
+            arr_eq[:, :, c] = np.interp(channel.flatten(), bins[:-1], cdf_normalized).reshape(channel.shape).astype(np.uint8)
+        self.arr = arr_eq
+        self.plot_histogram(self.layout())
 
 
 class MainWindow(QMainWindow):
