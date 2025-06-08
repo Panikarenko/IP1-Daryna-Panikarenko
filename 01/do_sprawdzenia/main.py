@@ -169,24 +169,30 @@ class HistogramDialog(QDialog):
         b = self.arr[:, :, 2].flatten()
         l = (0.3 * r + 0.6 * g + 0.1 * b).astype(np.uint8)
 
+        # unique, counts = np.unique(r, return_counts=True)
+        # max_count = max(dict(zip(unique, counts)).values())
+        # print(max_count)
+        print("Min:", self.arr.min(), "Max:", self.arr.max())
+
         fig, ax = plt.subplots()
         if self.hist_checkboxes['R'].isChecked():
-            ax.hist(r, bins=256, color='red', alpha=0.5, label='R')
+            ax.hist(r, bins=256, color='red', alpha=0.5, label='R', density=False)
         else:
-            ax.hist(r, bins=256, color='white', alpha=0.5, label='R')
+            ax.hist(r, bins=256, color='white', alpha=0.0, label='R', density=False)
         if self.hist_checkboxes['G'].isChecked():
-            ax.hist(g, bins=256, color='green', alpha=0.5, label='G')
+            ax.hist(g, bins=256, color='green', alpha=0.5, label='G', density=False)
         else:
-            ax.hist(g, bins=256, color='white', alpha=0.5, label='G')
+            ax.hist(g, bins=256, color='white', alpha=0.0, label='G', density=False)
         if self.hist_checkboxes['B'].isChecked():
-            ax.hist(b, bins=256, color='blue', alpha=0.5, label='B')
+            ax.hist(b, bins=256, color='blue', alpha=0.5, label='B', density=False)
         else:
-            ax.hist(b, bins=256, color='white', alpha=0.5, label='B')
+            ax.hist(b, bins=256, color='white', alpha=0.0, label='B', density=False)
         if self.hist_checkboxes['L'].isChecked():
-            ax.hist(l, bins=256, color='gray', alpha=0.5, label='L')
+            ax.hist(l, bins=256, color='gray', alpha=0.5, label='L', density=False)
         else:
-            ax.hist(l, bins=256, color='white', alpha=0.5, label='L')
+            ax.hist(l, bins=256, color='white', alpha=0.0, label='L', density=False)
         ax.set_xlim([0, 255])
+        ax.set_ylim(top=None)
         ax.set_title("Histogram RGB/L")
         ax.legend()
 
@@ -194,20 +200,23 @@ class HistogramDialog(QDialog):
         layout.insertWidget(layout.count() - 1, self.canvas)
 
     def stretch_histogram(self):
-        # Histogram stretching (contrast stretching)
-        arr = self.arr
+        arr = self.arr.astype(np.float32)
         arr_stretched = arr.copy()
+
         for c in range(3):
             channel = arr[:, :, c]
             min_val = channel.min()
             max_val = channel.max()
+
             if max_val > min_val:
-                arr_stretched[:, :, c] = ((channel - min_val) * 255 / (max_val - min_val)).astype(np.uint8)
-        self.arr = arr_stretched
+                stretched = (channel - min_val) * 255.0 / (max_val - min_val)
+                arr_stretched[:, :, c] = np.clip(stretched, 0, 255)
+
+        self.arr = arr_stretched.astype(np.uint8)
         self.plot_histogram(self.layout())
 
+
     def equalize_histogram(self):
-        # Histogram equalization
         arr = self.arr
         arr_eq = arr.copy()
         for c in range(3):
