@@ -147,12 +147,15 @@ class HistogramDialog(QDialog):
         self.arr = arr  # Save for later use
         self.qimage = qimage
 
-        # Compute histograms
-        self.plot_histogram(layout)
-
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
+
+        for checkbox in self.hist_checkboxes.values():
+            checkbox.stateChanged.connect(lambda _, l=layout: self.plot_histogram(l))
+
+        # Compute histograms
+        self.plot_histogram(layout)
 
     def plot_histogram(self, layout):
         # Remove old canvas if exists
@@ -169,18 +172,26 @@ class HistogramDialog(QDialog):
         fig, ax = plt.subplots()
         if self.hist_checkboxes['R'].isChecked():
             ax.hist(r, bins=256, color='red', alpha=0.5, label='R')
+        else:
+            ax.hist(r, bins=256, color='white', alpha=0.5, label='R')
         if self.hist_checkboxes['G'].isChecked():
             ax.hist(g, bins=256, color='green', alpha=0.5, label='G')
+        else:
+            ax.hist(g, bins=256, color='white', alpha=0.5, label='G')
         if self.hist_checkboxes['B'].isChecked():
             ax.hist(b, bins=256, color='blue', alpha=0.5, label='B')
+        else:
+            ax.hist(b, bins=256, color='white', alpha=0.5, label='B')
         if self.hist_checkboxes['L'].isChecked():
             ax.hist(l, bins=256, color='gray', alpha=0.5, label='L')
+        else:
+            ax.hist(l, bins=256, color='white', alpha=0.5, label='L')
         ax.set_xlim([0, 255])
         ax.set_title("Histogram RGB/L")
         ax.legend()
 
         self.canvas = FigureCanvas(fig)
-        layout.insertWidget(layout.count() - 1, self.canvas)  # Add before close button
+        layout.insertWidget(layout.count() - 1, self.canvas)
 
     def stretch_histogram(self):
         # Histogram stretching (contrast stretching)
