@@ -25,7 +25,6 @@ class EdgeGradient:
         return convolve2d(channel, self.g_y, mode="same", boundary="symm")
 
     def transform(self):
-        # Rozdziel na kanały
         r, g, b = self.pixels[:, :, 0], self.pixels[:, :, 1], self.pixels[:, :, 2]
 
         new_channels = []
@@ -36,7 +35,6 @@ class EdgeGradient:
             mag = np.clip(mag, 0, 255)
             new_channels.append(mag.astype(np.uint8))
 
-        # Połącz z powrotem w RGB
         result_rgb = np.stack(new_channels, axis=2)
         return Image.fromarray(result_rgb, mode="RGB")
     
@@ -91,7 +89,7 @@ class EdgeLaplacian:
     
 class EdgeLaplaceOfGauss:
     def __init__(self, image, size=3, sigma=1.6, threshold=5):
-        self.image = image.convert("L")  # tylko jasności
+        self.image = image.convert("L")
         self.pixels = np.array(self.image, dtype=np.float32)
         self.size = size
         self.sigma = sigma
@@ -102,7 +100,7 @@ class EdgeLaplaceOfGauss:
         return np.exp(-(x**2 + y**2) / (2 * sigma**2)) / (2 * np.pi * sigma**2)
 
     def getLoG(self, x, y, sigma):
-        factor = (x**2 + y**2 - 2 * sigma**2) / (sigma**4)
+        factor = (x**2 + y**2 - 2) / (sigma**2)
         return factor * self.getGauss(x, y, sigma)
 
     def getMask(self, size, sigma):
@@ -119,12 +117,11 @@ class EdgeLaplaceOfGauss:
     def transform(self):
         log_image = convolve2d(self.pixels, self.mask, mode="same", boundary="symm")
         
-        # Normalizacja do zakresu [0, 255], bo wartości po splotach mogą być np. [-50, 70]
         log_image = log_image - log_image.min()
         log_image = (log_image / log_image.max()) * 255
 
         output = np.zeros_like(log_image, dtype=np.uint8)
-        v0 = 128  # Zgodnie z instrukcją – środek 0–255
+        v0 = 128
         h, w = log_image.shape
 
         for i in range(1, h - 1):
@@ -133,6 +130,6 @@ class EdgeLaplaceOfGauss:
                 min_val = window.min()
                 max_val = window.max()
                 if min_val < v0 - self.threshold and max_val > v0 + self.threshold:
-                    output[i, j] = 255
+                    output[i, j] = int(log_image[i, j])
 
         return Image.fromarray(output, mode="L")

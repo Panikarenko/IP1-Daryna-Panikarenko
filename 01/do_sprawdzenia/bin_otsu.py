@@ -29,6 +29,5 @@ class BinOtsu:
                 maximum = between
                 threshold = t
 
-        # Apply threshold
         binarized = self.image.point(lambda p: 255 if p >= threshold else 0)
         return binarized.convert("RGB")

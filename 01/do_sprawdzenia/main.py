@@ -63,7 +63,7 @@ class Correction:
             val = np.interp(val, xp, fp)
 
             # GAMMA
-            nx = 255-(self.gamma * 127.0) # self.gamma od 0.0 do 2.0
+            nx = 255-(self.gamma * 127.0)
             ny = 255-nx
             xp = [0, nx, 255]
             fp = [0, ny, 255]
@@ -275,7 +275,6 @@ class MainWindow(QMainWindow):
         
         
         cwiczenia2_menu = QMenu("Ćwiczenia 2", self)
-        # Dodaj przykładowe akcje dla ćwiczenia 2
         histogram = QAction("Histogram", self)
         spl_roz = QAction("Splot, rozmywanie", self)
         cwiczenia2_menu.addAction(histogram)
@@ -400,7 +399,6 @@ class MainWindow(QMainWindow):
         index = self.side_panel_layout.indexOf(self.button2)
         self.side_panel_layout.insertWidget(index, self.lut_sliders_widget)
 
-        # krawędzie
         edge_roberts = QAction("Detekcja krawędzi: Roberts", self)
         edge_prewitt = QAction("Detekcja krawędzi: Prewitt", self)
         edge_sobel = QAction("Detekcja krawędzi: Sobel", self)
@@ -638,7 +636,6 @@ class MainWindow(QMainWindow):
                 print(f"Failed to save image: {e}")
 
     def edit_pixels(self):
-        # Example: Invert the colors of the image
         pixels = self.image.load()
         for i in range(self.image.width):
             for j in range(self.image.height):
@@ -646,7 +643,6 @@ class MainWindow(QMainWindow):
                 pixels[i, j] = (255 - r, 255 - g, 255 - b)
 
     def display_image(self):
-        # Convert the PIL image to QPixmap and display it
         self.image = self.image.convert("RGB")
         qt_image = ImageQt.ImageQt(self.image)
         pixmap = QPixmap.fromImage(qt_image)
@@ -666,7 +662,7 @@ class MainWindow(QMainWindow):
 
     def lut_triggered(self):
         self.lut_sliders_widget.setVisible(not self.lut_sliders_widget.isVisible())
-        # Podpinamy update dla suwaków
+
         for slider_info in [self.brightness_slider, self.contrast_slider, self.gamma_slider]:
             slider_info["slider"].valueChanged.connect(self.apply_lut_correction)
 
@@ -679,7 +675,6 @@ class MainWindow(QMainWindow):
             factor = 1.0 + (contrast_val / 100.0)
             gamma = 1.0 + (gamma_val / 100.0)
 
-            # użyj oryginału!
             corrected = Correction(self.current_image.copy(), shift, factor, gamma)
             self.image = corrected.transform()
             self.display_image()

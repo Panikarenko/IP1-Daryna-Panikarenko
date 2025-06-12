@@ -29,8 +29,7 @@ class HoughTransform:
 
         accumulator = np.zeros((theta_size, rho_range), dtype=np.uint64)
 
-        # Znajdź współrzędne pikseli krawędzi
-        y_idxs, x_idxs = np.nonzero(img_array > 0)  # tylko krawędzie!
+        y_idxs, x_idxs = np.nonzero(img_array > 0)
 
         for i in range(len(x_idxs)):
             x = x_idxs[i]

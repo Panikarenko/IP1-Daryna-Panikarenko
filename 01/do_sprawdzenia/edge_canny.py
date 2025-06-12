@@ -12,22 +12,17 @@ class EdgeCanny:
     def transform(self):
         img_array = np.asarray(self.image, dtype=np.float32)
 
-        # 1. Rozmycie Gaussa 3x3, σ=1.6
         kernel = self.gaussian_kernel_3x3(sigma=1.6)
         blurred = convolve(img_array, kernel)
 
-        # 2. Gradienty Sobela
         gx = sobel(blurred, axis=1)
         gy = sobel(blurred, axis=0)
 
-        # 3. Moc i kierunek gradientu
         magnitude = np.hypot(gx, gy)
         direction = np.arctan2(gy, gx)
 
-        # 4. Tłumienie niemaksymalne
         nms = self.non_maximum_suppression(magnitude, direction)
 
-        # 5. Progowanie z histerezą
         edges = self.hysteresis(nms, direction)
 
         return Image.fromarray((edges * 255).astype(np.uint8))
@@ -63,7 +58,6 @@ class EdgeCanny:
                     q = magnitude[y - 1, x - 1]
                     r = magnitude[y + 1, x + 1]
 
-                # Dodatkowy warunek: moc gradientu >= upper_thresh
                 if magnitude[y, x] >= q and magnitude[y, x] >= r and magnitude[y, x] >= self.upper_thresh:
                     output[y, x] = magnitude[y, x]
 
