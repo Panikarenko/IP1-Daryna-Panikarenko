@@ -9,6 +9,7 @@ import numpy as np
 from PyQt6.QtWidgets import QCheckBox, QDialog, QVBoxLayout, QPushButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
+from edge_filters import EdgeRoberts, EdgePrewitt, EdgeSobel, EdgeLaplacian, EdgeLaplaceOfGauss
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -231,6 +232,7 @@ class HistogramDialog(QDialog):
 
 class MainWindow(QMainWindow):
     def __init__(self):
+        self.ignoring_binary_update = False
         super().__init__()
         self.setWindowTitle("PHOTOSHOP")
         self.setGeometry(100, 100, 800, 600)
@@ -284,6 +286,26 @@ class MainWindow(QMainWindow):
         self.side_panel_layout.addWidget(self.button2)
 
         histogram.triggered.connect(self.histogram_menu_triggered)
+
+        cwiczenia3_menu = QMenu("Ćwiczenia 3", self)
+        self.button3 = QPushButton("Ćwiczenie 3")
+        self.button3.setMenu(cwiczenia3_menu)
+        self.side_panel_layout.addWidget(self.button3)
+
+        cwiczenia4_menu = QMenu("Ćwiczenia 4", self)
+        self.button4 = QPushButton("Ćwiczenie 4")
+        self.button4.setMenu(cwiczenia4_menu)
+        self.side_panel_layout.addWidget(self.button4)
+
+        cwiczenia5_menu = QMenu("Ćwiczenia 5-6", self)
+        self.button5 = QPushButton("Ćwiczenie 5-6")
+        self.button5.setMenu(cwiczenia5_menu)
+        self.side_panel_layout.addWidget(self.button5)
+
+        cwiczenia7_menu = QMenu("Ćwiczenia 7", self)
+        self.button7 = QPushButton("Ćwiczenie 7")
+        self.button7.setMenu(cwiczenia7_menu)
+        self.side_panel_layout.addWidget(self.button7)
 
         # Create a QLabel to display the image
         self.image_label = QLabel(self)
@@ -378,6 +400,178 @@ class MainWindow(QMainWindow):
         index = self.side_panel_layout.indexOf(self.button2)
         self.side_panel_layout.insertWidget(index, self.lut_sliders_widget)
 
+        # krawędzie
+        edge_roberts = QAction("Detekcja krawędzi: Roberts", self)
+        edge_prewitt = QAction("Detekcja krawędzi: Prewitt", self)
+        edge_sobel = QAction("Detekcja krawędzi: Sobel", self)
+        edge_laplacian = QAction("Detekcja krawędzi: Laplace", self)
+
+        cwiczenia3_menu.addAction(edge_roberts)
+        cwiczenia3_menu.addAction(edge_prewitt)
+        cwiczenia3_menu.addAction(edge_sobel)
+        cwiczenia3_menu.addAction(edge_laplacian)
+        edge_roberts.triggered.connect(lambda: self.apply_edge_filter("roberts"))
+        edge_prewitt.triggered.connect(lambda: self.apply_edge_filter("prewitt"))
+        edge_sobel.triggered.connect(lambda: self.apply_edge_filter("sobel"))
+        edge_laplacian.triggered.connect(lambda: self.apply_edge_filter("laplacian"))
+
+        edge_log_zero = QAction("Detekcja krawędzi: Laplacian of Gauss (LoG)", self)
+        cwiczenia3_menu.addAction(edge_log_zero)
+        edge_log_zero.triggered.connect(self.apply_laplacian_of_gauss)
+
+        edge_canny = QAction("Detekcja krawędzi: Canny", self)
+        cwiczenia3_menu.addAction(edge_canny)
+        edge_canny.triggered.connect(self.apply_edge_canny)
+
+        bin_manual_action = QAction("Binaryzacja: ręczna", self)
+        bin_otsu_action = QAction("Binaryzacja: Otsu", self)
+
+        cwiczenia4_menu.addAction(bin_manual_action)
+        cwiczenia4_menu.addAction(bin_otsu_action)
+
+        bin_manual_action.triggered.connect(self.binaryzacja_manual)
+        bin_otsu_action.triggered.connect(self.binaryzacja_otsu)
+
+        # Widget binaryzacji ręcznej (suwak progu)
+        self.binary_slider_widget = QWidget()
+        self.binary_slider_layout = QVBoxLayout()
+        self.binary_slider_widget.setLayout(self.binary_slider_layout)
+        self.binary_slider_widget.setVisible(False)
+
+        self.binary_slider = QSlider(Qt.Orientation.Horizontal)
+        self.binary_slider.setMinimum(0)
+        self.binary_slider.setMaximum(255)
+        self.binary_slider.setValue(150)
+
+        self.binary_slider_label = QLabel(f"Próg binaryzacji: {self.binary_slider.value()}")
+        self.binary_slider.valueChanged.connect(self.update_binary_threshold)
+
+        self.binary_slider_layout.addWidget(self.binary_slider_label)
+        self.binary_slider_layout.addWidget(self.binary_slider)
+
+        index_cwiczenie4 = self.side_panel_layout.indexOf(self.button4)
+        self.side_panel_layout.insertWidget(index_cwiczenie4 + 1, self.binary_slider_widget)
+
+        bin_niblack_action = QAction("Binaryzacja: Niblack", self)
+        cwiczenia4_menu.addAction(bin_niblack_action)
+        bin_niblack_action.triggered.connect(self.binaryzacja_niblack)
+
+        hough_action = QAction("Transformata Hougha: Linie", self)
+        cwiczenia5_menu.addAction(hough_action)
+        hough_action.triggered.connect(self.apply_hough_transform)
+
+        watershed_action = QAction("Segmentacja wododziałowa (Vincent-Soille)", self)
+        cwiczenia5_menu.addAction(watershed_action)
+        watershed_action.triggered.connect(self.apply_watershed)
+
+        harris_action = QAction("Detekcja narożników: Harris", self)
+        cwiczenia7_menu.addAction(harris_action)
+        harris_action.triggered.connect(self.apply_harris_corner_detection)
+
+    def apply_harris_corner_detection(self):
+        if hasattr(self, 'image'):
+            from corner_harris import CornerHarris
+            detector = CornerHarris(
+                self.image,
+                sigma=1.0,
+                sigma_weight=0.76,
+                k_param=0.05,
+                threshold=30000000
+            )
+            self.image = detector.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def apply_watershed(self):
+        if hasattr(self, 'image'):
+            from segmentation import WatershedVincentSoille
+            watershed = WatershedVincentSoille(self.image)
+            self.image = watershed.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def apply_hough_transform(self):
+        if hasattr(self, 'image'):
+            from hough_lines import HoughTransform
+            hough = HoughTransform(self.image, theta_density=3.0, skip_edge_detection=False)
+            self.image = hough.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def binaryzacja_niblack(self):
+        if hasattr(self, 'image'):
+            from bin_niblack import BinNiblack
+            b = BinNiblack(self.image, radius=3, k=-0.2)
+            self.image = b.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def binaryzacja_manual(self):
+        if hasattr(self, 'image'):
+            visible = self.binary_slider_widget.isVisible()
+            self.binary_slider_widget.setVisible(not visible)
+
+            if not visible:
+                self.apply_binary_manual()
+
+    def apply_binary_manual(self):
+        from bin_manual import BinManual
+        threshold = self.binary_slider.value()
+        if hasattr(self, 'original_image'):
+            # Operuj na obrazie wejściowym
+            b = BinManual(self.original_image.copy(), threshold=threshold)
+            self.image = b.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def update_binary_threshold(self, value):
+        self.binary_slider_label.setText(f"Próg binaryzacji: {value}")
+        if not self.ignoring_binary_update:
+            self.apply_binary_manual()
+
+    def binaryzacja_otsu(self):
+        if hasattr(self, 'image'):
+            from bin_otsu import BinOtsu
+            b = BinOtsu(self.image)
+            self.image = b.transform()
+            self.current_image = self.image.copy()
+            self.display_image()
+
+
+    def apply_edge_canny(self):
+        if hasattr(self, 'image'):
+            from edge_canny import EdgeCanny
+            canny = EdgeCanny(self.image, lower_thresh=50, upper_thresh=100)
+            self.image = canny.transform().convert("RGB")
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def apply_laplacian_of_gauss(self):
+        if hasattr(self, 'image'):
+            log = EdgeLaplaceOfGauss(self.image, size=3, sigma=1.6, threshold=5)
+            self.image = log.transform().convert("RGB")  # konwersja dla spójności
+            self.current_image = self.image.copy()
+            self.display_image()
+
+    def apply_edge_filter(self, method):
+        if not hasattr(self, 'image'):
+            return
+
+        if method == "roberts":
+            edge = EdgeRoberts(self.image)
+        elif method == "prewitt":
+            edge = EdgePrewitt(self.image)
+        elif method == "sobel":
+            edge = EdgeSobel(self.image)
+        elif method == "laplacian":
+            edge = EdgeLaplacian(self.image, size=3)
+        else:
+            return
+
+        self.image = edge.transform()
+        self.current_image = self.image.copy()
+        self.display_image()
+
     def blur_menu_triggered(self):
         self.blur_sliders_widget.setVisible(not self.blur_sliders_widget.isVisible())
 
@@ -423,7 +617,7 @@ class MainWindow(QMainWindow):
         return {"label": label, "slider": slider}
 
     def open_action_triggered(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "PPM Files (*.ppm);;All Files (*)")
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;PPM Files (*.ppm)")
         if file_name:
             try:
                 self.image = Image.open(file_name).convert("RGB")
@@ -498,6 +692,10 @@ class MainWindow(QMainWindow):
             self.brightness_slider["slider"].setValue(0)
             self.contrast_slider["slider"].setValue(0)
             self.gamma_slider["slider"].setValue(0)
+
+            self.ignoring_binary_update = True
+            self.binary_slider.setValue(0)
+            self.ignoring_binary_update = False
 
 
 if __name__ == "__main__":
