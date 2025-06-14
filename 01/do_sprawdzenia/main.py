@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QFileDialog, QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSlider
 from PyQt6.QtGui import QAction, QPixmap
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PIL import Image, ImageQt
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 from scipy.interpolate import CubicSpline
@@ -115,52 +115,42 @@ class ConversionGrayscale:
         return self.image
 
 class HistogramDialog(QDialog):
-    def __init__(self, qimage, parent=None):
+    image_modified = pyqtSignal(object)
+
+    def __init__(self, pil_image, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Histogram")
         self.setMinimumSize(500, 400)
-        layout = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout(self)
 
-        # Histogram controls
+        self.pil_image = pil_image.copy()
+        self.arr = np.array(self.pil_image)
+
         self.hist_checkboxes = {}
         for channel in ['R', 'G', 'B', 'L']:
             checkbox = QCheckBox(channel)
             checkbox.setChecked(True)
             self.hist_checkboxes[channel] = checkbox
-            layout.addWidget(checkbox)
+            self.main_layout.addWidget(checkbox)
 
         self.hist_stretch_button = QPushButton("Rozciąganie hist. obrazu")
         self.hist_equalize_button = QPushButton("Wyrównywanie hist. obrazu")
-        layout.addWidget(self.hist_stretch_button)
-        layout.addWidget(self.hist_equalize_button)
+        self.main_layout.addWidget(self.hist_stretch_button)
+        self.main_layout.addWidget(self.hist_equalize_button)
 
-        # Connect buttons to functions
         self.hist_stretch_button.clicked.connect(self.stretch_histogram)
         self.hist_equalize_button.clicked.connect(self.equalize_histogram)
-
-        # Extract pixel data
-        width = qimage.width()
-        height = qimage.height()
-        if qimage.format() != qimage.Format.Format_RGB888:
-            qimage = qimage.convertToFormat(qimage.Format.Format_RGB888)
-        ptr = qimage.bits()
-        ptr.setsize(qimage.sizeInBytes())
-        arr = np.frombuffer(ptr, np.uint8).reshape((height, width, 3))
-        self.arr = arr  # Save for later use
-        self.qimage = qimage
-
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        layout.addWidget(close_btn)
+        
+        apply_btn = QPushButton("Zastosuj i zamknij")
+        apply_btn.clicked.connect(self.apply_and_close)
+        self.main_layout.addWidget(apply_btn)
 
         for checkbox in self.hist_checkboxes.values():
-            checkbox.stateChanged.connect(lambda _, l=layout: self.plot_histogram(l))
+            checkbox.stateChanged.connect(lambda _, l=self.main_layout: self.plot_histogram(l))
 
-        # Compute histograms
-        self.plot_histogram(layout)
+        self.plot_histogram(self.main_layout)
 
     def plot_histogram(self, layout):
-        # Remove old canvas if exists
         if hasattr(self, 'canvas'):
             layout.removeWidget(self.canvas)
             self.canvas.setParent(None)
@@ -210,8 +200,8 @@ class HistogramDialog(QDialog):
                 arr_stretched[:, :, c] = np.clip(stretched, 0, 255)
 
         self.arr = arr_stretched.astype(np.uint8)
-        self.plot_histogram(self.layout())
-
+        self.plot_histogram(self.main_layout)
+        self.image_modified.emit(Image.fromarray(self.arr))
 
     def equalize_histogram(self):
         arr = self.arr
@@ -223,7 +213,12 @@ class HistogramDialog(QDialog):
             cdf_normalized = cdf * 255 / cdf[-1]
             arr_eq[:, :, c] = np.interp(channel.flatten(), bins[:-1], cdf_normalized).reshape(channel.shape).astype(np.uint8)
         self.arr = arr_eq
-        self.plot_histogram(self.layout())
+        self.plot_histogram(self.main_layout)
+        self.image_modified.emit(Image.fromarray(self.arr))
+
+    def apply_and_close(self):
+        self.image_modified.emit(Image.fromarray(self.arr))
+        self.accept()
 
 
 class MainWindow(QMainWindow):
@@ -581,13 +576,16 @@ class MainWindow(QMainWindow):
                 self.hist_checkboxes[changed_channel].setChecked(True)
 
     def histogram_menu_triggered(self):
-        # self.histogram_controls_widget.setVisible(not self.histogram_controls_widget.isVisible())
-        # Show histogram dialog
         if hasattr(self, 'image'):
-            # Convert PIL image to QImage
-            qt_image = ImageQt.ImageQt(self.image)
-            dialog = HistogramDialog(qt_image, self)
+            dialog = HistogramDialog(self.image, self)
+            dialog.image_modified.connect(self.update_main_image)
             dialog.exec()
+
+    def update_main_image(self, new_pil_image):
+        self.image = new_pil_image
+        self.current_image = self.image.copy()
+        self.display_image()
+
         
     def apply_lut_correction(self):
         if hasattr(self, 'current_image'):
