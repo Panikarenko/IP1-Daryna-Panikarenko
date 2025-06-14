@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QVBoxLayout, QPushButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from edge_filters import EdgeRoberts, EdgePrewitt, EdgeSobel, EdgeLaplacian, EdgeLaplaceOfGauss
+import cv2
 
 class Correction:
     def __init__(self, image, shift=0, factor=1.0, gamma=1.0):
@@ -169,11 +170,6 @@ class HistogramDialog(QDialog):
         g = self.arr[:, :, 1].flatten()
         b = self.arr[:, :, 2].flatten()
         l = (0.3 * r + 0.6 * g + 0.1 * b).astype(np.uint8)
-
-        # unique, counts = np.unique(r, return_counts=True)
-        # max_count = max(dict(zip(unique, counts)).values())
-        # print(max_count)
-        print("Min:", self.arr.min(), "Max:", self.arr.max())
 
         fig, ax = plt.subplots()
         if self.hist_checkboxes['R'].isChecked():
@@ -346,20 +342,21 @@ class MainWindow(QMainWindow):
         self.blur_sliders_widget.setVisible(False)  # Początkowo niewidoczny
 
         self.blur_sliders = {}
-        blur_names = [
-            "splot",
-            "równ. rozmywanie",
-            "gauss. rozmywanie",
-            "splot z maską"
-        ]
+        blur_names = {
+            "splot": "splot",
+            "równ. rozmywanie": "rozmazywanie",
+            "gauss. rozmywanie": "gauss",
+            "splot z maską": "splot_maska",
+        }
 
-        for name in blur_names:
+        for name, function_name in blur_names.items():
             label = QLabel(f"{name}: 0")
             slider = QSlider(Qt.Orientation.Horizontal)
             slider.setMinimum(0)
             slider.setMaximum(100)
             slider.setValue(0)
             slider.valueChanged.connect(lambda value, l=label, n=name: l.setText(f"{n}: {value}"))
+            slider.valueChanged.connect(lambda value, fn=function_name: getattr(self, fn)(value))
             self.blur_sliders_layout.addWidget(label)
             self.blur_sliders_layout.addWidget(slider)
             self.blur_sliders[name] = slider
@@ -692,6 +689,143 @@ class MainWindow(QMainWindow):
             self.binary_slider.setValue(0)
             self.ignoring_binary_update = False
 
+    def splot(self, value):
+        if self.original_image is None:
+            return
+
+        img_array = np.array(self.original_image)
+
+        radius = max(1, int(value / 10)) if value > 0 else 0
+
+        if radius == 0:
+            self.image = self.original_image.copy()
+            self.current_image = self.image.copy()
+            self.display_image()
+            return
+
+        kernel_size = 2 * radius + 1
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.float32)
+        kernel /= kernel.sum()
+        border_type = cv2.BORDER_REPLICATE
+
+        if img_array.ndim == 3 and img_array.shape[2] == 3:
+            convolved = np.zeros_like(img_array)
+            for i in range(3):
+                convolved[:, :, i] = cv2.filter2D(img_array[:, :, i], -1, kernel, borderType=border_type)
+        else:
+            convolved = cv2.filter2D(img_array, -1, kernel, borderType=border_type)
+
+        convolved_img = Image.fromarray(np.clip(convolved, 0, 255).astype(np.uint8))
+
+        self.image = convolved_img
+        self.current_image = self.image.copy()
+        self.display_image()
+
+    def rozmazywanie(self, value):
+        if self.original_image is None:
+            return
+
+        img_array = np.array(self.original_image)
+
+        radius = max(1, int(value / 10)) if value > 0 else 0
+
+        if radius == 0:
+            self.image = self.original_image.copy()
+            self.current_image = self.image.copy()
+            self.display_image()
+            return
+
+        kernel_size = 2 * radius + 1
+        kernel = np.ones((kernel_size, kernel_size), dtype=np.float32)
+        kernel /= kernel.sum()
+
+        # Używamy domyślnego typu brzegowego
+        convolved = cv2.filter2D(img_array, -1, kernel)
+
+        convolved_img = Image.fromarray(np.clip(convolved, 0, 255).astype(np.uint8))
+        self.image = convolved_img
+        self.current_image = self.image.copy()
+        self.display_image()
+
+    def gauss(self, value):
+        if self.original_image is None:
+            return
+
+        img_array = np.array(self.original_image)
+
+        radius = max(1, int(value / 10))
+        if radius == 0:
+             radius = 1
+
+        sigma = 0.1 + (value / 100.0) * 4.9
+
+        if value == 0:
+            self.image = self.original_image.copy()
+            self.current_image = self.image.copy()
+            self.display_image()
+            return
+
+        kernel_size = 2 * radius + 1
+        gaussian_kernel = np.zeros((kernel_size, kernel_size), dtype=np.float32)
+
+        center = radius
+
+        for i in range(kernel_size):
+            for j in range(kernel_size):
+                x = j - center
+                y = i - center
+                
+                if sigma <= 0:
+                    raise ValueError("Sigma musi być większa od zera.")
+                term1 = 1 / (2 * np.pi * sigma**2)
+                term2 = np.exp(-(x**2 + y**2) / (2 * sigma**2))
+                gaussian_kernel[i, j] = term1 * term2
+
+        if gaussian_kernel.sum() != 0:
+            gaussian_kernel /= gaussian_kernel.sum()
+        else:
+            print("Ostrzeżenie: Suma maski Gaussa wynosi zero.")
+
+        border_type = cv2.BORDER_REPLICATE
+
+        if img_array.ndim == 3 and img_array.shape[2] == 3:
+            convolved = np.zeros_like(img_array, dtype=np.float32)
+            for i in range(3):
+                convolved[:, :, i] = cv2.filter2D(img_array[:, :, i], -1, gaussian_kernel, borderType=border_type)
+        else:
+            convolved = cv2.filter2D(img_array, -1, gaussian_kernel, borderType=border_type)
+
+        convolved_img = Image.fromarray(np.clip(convolved, 0, 255).astype(np.uint8))
+
+        self.image = convolved_img
+        self.current_image = self.image.copy()
+        self.display_image()
+
+    def splot_maska(self, value):
+        if self.original_image is None:
+            return
+        img_array = np.array(self.original_image)
+        border_type = cv2.BORDER_REPLICATE
+        if value == 0:
+            self.image = self.original_image.copy()
+            self.current_image = self.image.copy()
+            self.display_image()
+            return
+        intensity = value / 100.0
+        kernel = np.array([[-intensity, -intensity, -intensity],
+                           [-intensity, 1 + 8 * intensity, -intensity],
+                           [-intensity, -intensity, -intensity]], dtype=np.float32)
+        if img_array.ndim == 3 and img_array.shape[2] == 3:
+            convolved = np.zeros_like(img_array, dtype=np.float32)
+            for i in range(3):
+                convolved[:, :, i] = cv2.filter2D(img_array[:, :, i], -1, kernel, borderType=border_type)
+        else:
+            convolved = cv2.filter2D(img_array, -1, kernel, borderType=border_type)
+        convolved_img = Image.fromarray(np.clip(convolved, 0, 255).astype(np.uint8))
+        self.image = convolved_img
+        self.current_image = self.image.copy()
+        self.display_image()
+    
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
